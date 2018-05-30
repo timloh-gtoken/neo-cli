@@ -31,11 +31,13 @@ namespace Neo
     {
         public string Chain { get; }
         public string ApplicationLogs { get; }
-
+        public string Notifications { get; }
         public PathsSettings(IConfigurationSection section)
         {
             this.Chain = string.Format(section.GetSection("Chain").Value, Message.Magic.ToString("X8"));
             this.ApplicationLogs = string.Format(section.GetSection("ApplicationLogs").Value, Message.Magic.ToString("X8"));
+            this.Notifications = string.Format(section.GetSection("Notifications").Value, Message.Magic.ToString("X8"));
+
         }
     }
 

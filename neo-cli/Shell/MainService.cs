@@ -25,6 +25,8 @@ using System.Threading.Tasks;
 using ECCurve = Neo.Cryptography.ECC.ECCurve;
 using ECPoint = Neo.Cryptography.ECC.ECPoint;
 
+using Neo.Notifications;
+
 namespace Neo.Shell
 {
     internal class MainService : ConsoleServiceBase
@@ -33,6 +35,9 @@ namespace Neo.Shell
 
         private RpcServerWithWallet rpc;
         private ConsensusWithLog consensus;
+
+        private NotificationDB notificationDB;
+        private NotificationApiApplication notificationApi;
 
         protected LocalNode LocalNode { get; private set; }
         protected override string Prompt => "neo";
@@ -859,7 +864,7 @@ namespace Neo.Shell
 
         protected internal override void OnStart(string[] args)
         {
-            bool useRPC = false, nopeers = false, useLog = false;
+            bool useRPC = false, nopeers = false, useLog = false, processNotifications = false, serveNotifications = false;
             for (int i = 0; i < args.Length; i++)
                 switch (args[i])
                 {
@@ -874,6 +879,14 @@ namespace Neo.Shell
                     case "-l":
                     case "--log":
                         useLog = true;
+                        break;
+                    case "-n":
+                    case "--notifications":
+                        processNotifications = true;
+                        break;
+                    case "-s":
+                    case "--serve":
+                        serveNotifications = true;
                         break;
                 }
             Blockchain.RegisterBlockchain(new LevelDBBlockchain(Path.GetFullPath(Settings.Default.Paths.Chain)));
@@ -952,6 +965,15 @@ namespace Neo.Shell
                     rpc = new RpcServerWithWallet(LocalNode);
                     rpc.Start(Settings.Default.RPC.Port, Settings.Default.RPC.SslCert, Settings.Default.RPC.SslCertPassword);
                 }
+
+                if( processNotifications)
+                {
+                    notificationDB = NotificationDB.Instance;
+                }
+                if( serveNotifications)
+                {
+                    notificationApi = new NotificationApiApplication();
+                }
             });
         }
 
@@ -985,6 +1007,7 @@ namespace Neo.Shell
         {
             if (consensus != null) consensus.Dispose();
             if (rpc != null) rpc.Dispose();
+            if (notificationDB != null) notificationDB.Dispose();
             LocalNode.Dispose();
             using (FileStream fs = new FileStream(PeerStatePath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
@@ -1062,9 +1085,11 @@ namespace Neo.Shell
                 notification["state"] = p.State.ToParameter().ToJson();
                 return notification;
             }).ToArray();
-            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
-            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
-            File.WriteAllText(path, json.ToString());
+            //            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
+            //            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
+            //            File.WriteAllText(path, json.ToString());
+
+            Console.WriteLine($"TX: {json.ToString()}");
         }
     }
 }
