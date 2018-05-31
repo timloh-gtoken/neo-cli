@@ -8,6 +8,7 @@ namespace Neo
         public PathsSettings Paths { get; }
         public P2PSettings P2P { get; }
         public RPCSettings RPC { get; }
+        public RESTSettings REST { get; }
         public UnlockWalletSettings UnlockWallet { get; set; }
 
         public static Settings Default { get; }
@@ -23,6 +24,7 @@ namespace Neo
             this.Paths = new PathsSettings(section.GetSection("Paths"));
             this.P2P = new P2PSettings(section.GetSection("P2P"));
             this.RPC = new RPCSettings(section.GetSection("RPC"));
+            this.REST = new RESTSettings(section.GetSection("REST"));
             this.UnlockWallet = new UnlockWalletSettings(section.GetSection("UnlockWallet"));
         }
     }
@@ -64,6 +66,16 @@ namespace Neo
             this.Port = ushort.Parse(section.GetSection("Port").Value);
             this.SslCert = section.GetSection("SslCert").Value;
             this.SslCertPassword = section.GetSection("SslCertPassword").Value;
+        }
+    }
+
+    internal class RESTSettings
+    {
+        public string Hosts { get; }
+
+        public RESTSettings(IConfiguration section)
+        {
+            this.Hosts = section.GetSection("Hosts").Value;
         }
     }
 
