@@ -92,7 +92,9 @@ namespace Neo.Notifications
 
         public static IWebHost BuildWebHost()
         {
+
             return WebHost.CreateDefaultBuilder()
+                .ConfigureLogging( logging => logging.SetMinimumLevel(LogLevel.Error))
                 .UseUrls(Settings.Default.REST.Hosts)
                 .UseStartup<NotificationStartup>()
                 .Build();
