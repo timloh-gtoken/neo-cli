@@ -6,11 +6,13 @@ using Newtonsoft.Json.Linq;
 namespace Neo.Notifications
 {
 
-    public class PaginationQuery
+    public class NotificationQuery
     {
         private const int maxPageSize = 1000;
         public int Page { get; set; } = 1;
         private int _pageSize = 500;
+
+        public string EventType { get; set; } = null;
 
         public int PageSize
         {
@@ -37,7 +39,7 @@ namespace Neo.Notifications
         public int total { get; set; }
         public int total_pages { get; set; }
 
-        public void Paginate(PaginationQuery query)
+        public void Paginate(NotificationQuery query)
         {
 
             total = results.Count;

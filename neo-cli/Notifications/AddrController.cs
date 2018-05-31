@@ -22,17 +22,17 @@ namespace Neo.Notifications
         [HttpGet("{addr}")]
         [ProducesResponseType(typeof(NotificationResult), 200)]
         [ProducesResponseType(404)]
-        public IActionResult GetByAddr(string addr, PaginationQuery pageQuery)
+        public IActionResult GetByAddr(string addr, NotificationQuery pageQuery)
         {
             NotificationResult result = defaultResult;
 
             if( addr.Length == 34)
             {
-                result = NotificationDB.Instance.NotificationsForAddress(Wallet.ToScriptHash(addr));
+                result = NotificationDB.Instance.NotificationsForAddress(Wallet.ToScriptHash(addr), pageQuery.EventType);
 
             } else if( UInt160.TryParse(addr, out UInt160 address))
             {
-                result = NotificationDB.Instance.NotificationsForAddress(address);
+                result = NotificationDB.Instance.NotificationsForAddress(address, pageQuery.EventType);
             }
 
             result.Paginate(pageQuery);

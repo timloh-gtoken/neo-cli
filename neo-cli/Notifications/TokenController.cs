@@ -12,7 +12,7 @@ namespace Neo.Notifications
         [HttpGet]
         [ProducesResponseType(typeof(NotificationResult), 200)]
         [ProducesResponseType(404)]
-        public IActionResult GetTokens(PaginationQuery pageQuery)
+        public IActionResult GetTokens(NotificationQuery pageQuery)
         {
             NotificationResult result = NotificationDB.Instance.GetTokens();
 

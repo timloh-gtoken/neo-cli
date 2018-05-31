@@ -59,35 +59,71 @@ namespace Neo.Notifications
         }
 
 
-        public NotificationResult NotificationsForBlock(uint height)
+        public NotificationResult NotificationsForBlock(uint height, string event_type = null)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for a block", results = new List<JToken>() };
             foreach(byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_BLOCK).Add(height))) {
-                nResult.results.Add( JToken.Parse(Encoding.Default.GetString(res)));
+                JToken t = JToken.Parse(Encoding.Default.GetString(res));
+                if (event_type != null)
+                {
+                    JToken notifyType = t.SelectToken("notif_type");
+                    if (notifyType != null && notifyType.ToString() == event_type)
+                    {
+                        nResult.results.Add(t);
+                    }
+                }
+                else
+                {
+                    nResult.results.Add(t);
+                }
             }
 
             return nResult;
         }
 
-        public NotificationResult NotificationsForContract(UInt160 contract)
+        public NotificationResult NotificationsForContract(UInt160 contract, string event_type = null)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for contract", results = new List<JToken>() };
 
             foreach (byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_CONTRACT).Add(contract)))
             {
-                nResult.results.Add(JToken.Parse(Encoding.Default.GetString(res)));
+                JToken t = JToken.Parse(Encoding.Default.GetString(res));
+                if (event_type != null)
+                {
+                    JToken notifyType = t.SelectToken("notif_type");
+                    if (notifyType != null && notifyType.ToString() == event_type)
+                    {
+                        nResult.results.Add(t);
+                    }
+                }
+                else
+                {
+                    nResult.results.Add(t);
+                }
             }
 
             return nResult;
         }
 
-        public NotificationResult NotificationsForAddress(UInt160 address)
+        public NotificationResult NotificationsForAddress(UInt160 address, string event_type = null)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for contract", results = new List<JToken>() };
 
             foreach (byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_ADDR).Add(address)))
             {
-                nResult.results.Add(JToken.Parse(Encoding.Default.GetString(res)));
+                JToken t = JToken.Parse(Encoding.Default.GetString(res));
+                if (event_type != null)
+                {
+                    JToken notifyType = t.SelectToken("notif_type");
+                    if (notifyType != null && notifyType.ToString() == event_type)
+                    {
+                        nResult.results.Add(t);
+                    }
+                }
+                else
+                {
+                    nResult.results.Add(t);
+                }
             }
 
             return nResult;
@@ -150,7 +186,7 @@ namespace Neo.Notifications
                     bool contractIsSaved = checkContractExists(p.ScriptHash);
                     if( !contractIsSaved)
                     {
-                        checkIsNEP5(p.ScriptHash);   
+                        checkIsNEP5(p.ScriptHash, txid);   
                     }
                 }
 
@@ -226,14 +262,15 @@ namespace Neo.Notifications
             return currentCount;
         }
 
-        private void checkIsNEP5(UInt160 scriptHash)
+        private void checkIsNEP5(UInt160 scriptHash, string txid)
         {
             try
             {
-                NEP5Token token = NEP5Token.QueryIsToken(scriptHash);
+                NEP5Token token = NEP5Token.QueryIsToken(scriptHash, txid);
 
                 if( token != null)
                 {
+                    Console.WriteLine($"Got NEP5 Token {token.ToJson()}");
                     Slice tokenStore = SliceBuilder.Begin(NotificationsPrefix.NP_TOKEN).Add(scriptHash.ToArray());
                     if( !db.TryGet(readOptions, tokenStore, out Slice value))
                     {
@@ -299,7 +336,7 @@ namespace Neo.Notifications
 
         private void persistTransfer(NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
         {
-            nJson["notify_type"] = "transfer";
+            nJson["notif_type"] = "transfer";
 
             if( states.Count >= 4)
             {
@@ -351,7 +388,7 @@ namespace Neo.Notifications
 
         private void persistRefund(NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
         {
-            nJson["notify_type"] = "refund";
+            nJson["notif_type"] = "refund";
 
             if (states.Count >= 3)
             {
@@ -387,7 +424,7 @@ namespace Neo.Notifications
 
         private void persistMintOrBurn(string mintOrBurn, NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
         {
-            nJson["notify_type"] = mintOrBurn;
+            nJson["notif_type"] = mintOrBurn;
 
             if (states.Count >= 3)
             {

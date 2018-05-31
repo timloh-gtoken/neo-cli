@@ -19,13 +19,13 @@ namespace Neo.Notifications
         [HttpGet("{scripthash}")]
         [ProducesResponseType(typeof(NotificationResult), 200)]
         [ProducesResponseType(404)]
-        public IActionResult GetByScriptHash(string scripthash, PaginationQuery pageQuery)
+        public IActionResult GetByScriptHash(string scripthash, NotificationQuery pageQuery)
         {
             NotificationResult result = defaultResult;
 
             if( UInt160.TryParse(scripthash, out UInt160 contract))
             {
-                result = NotificationDB.Instance.NotificationsForContract(contract);
+                result = NotificationDB.Instance.NotificationsForContract(contract, pageQuery.EventType);
             }
 
             result.Paginate(pageQuery);
