@@ -32,7 +32,7 @@ namespace Neo.Notifications
             token["symbol"] = Symbol;
             token["decimals"] = Decimals;
             token["script_hash"] = ScriptHash;
-            token["address"] = Address;
+            token["contract_address"] = Address;
             JObject contract = Contract.ToJson();
             contract["script"] = null;
             json["contract"] = contract;
