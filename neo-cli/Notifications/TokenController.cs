@@ -14,7 +14,7 @@ namespace Neo.Notifications
         [ProducesResponseType(404)]
         public IActionResult GetTokens(NotificationQuery pageQuery)
         {
-            NotificationResult result = NotificationDB.Instance.GetTokens();
+            NotificationResult result = NotificationDB.Instance.GetTokens(pageQuery);
 
             result.Paginate(pageQuery);
 

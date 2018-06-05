@@ -25,7 +25,7 @@ namespace Neo.Notifications
 
             if( UInt160.TryParse(scripthash, out UInt160 contract))
             {
-                result = NotificationDB.Instance.NotificationsForContract(contract, pageQuery.EventType);
+                result = NotificationDB.Instance.NotificationsForContract(contract, pageQuery);
             }
 
             result.Paginate(pageQuery);

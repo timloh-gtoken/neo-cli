@@ -16,6 +16,7 @@ using VMArray = Neo.VM.Types.Array;
 
 namespace Neo.Notifications
 {
+
     public static class NotificationsPrefix
     {
         public const byte NP_ADDR = 0x01;
@@ -58,59 +59,59 @@ namespace Neo.Notifications
             db = DB.Open(path, new Options { CreateIfMissing = true });
         }
 
-        public NotificationResult NotificationsForBlock(uint height, string event_type = null)
+        public NotificationResult NotificationsForBlock(uint height, NotificationQuery query)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for a block", results = new List<JToken>() };
-            foreach(byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_BLOCK).Add(height))) {
-                JToken t = JToken.Parse(Encoding.Default.GetString(res));
-                if (filter_result(t, event_type))
+            foreach(IterResult res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_BLOCK).Add(height))) {
+                if (filter_result(res.json, query))
                 {
-                    nResult.results.Add(t);
+                    nResult.results.Add(res.json);
                 }
             }
 
             return nResult;
         }
 
-        public NotificationResult NotificationsForContract(UInt160 contract, string event_type = null)
+        public NotificationResult NotificationsForContract(UInt160 contract, NotificationQuery query)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for contract", results = new List<JToken>() };
 
-            foreach (byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_CONTRACT).Add(contract)))
+            foreach (IterResult res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_CONTRACT).Add(contract)))
             {
-                JToken t = JToken.Parse(Encoding.Default.GetString(res));
-                if (filter_result(t, event_type))
+                if (filter_result(res.json, query))
                 {
-                    nResult.results.Add(t);
+                    nResult.results.Add(res.json);
                 }
             }
 
             return nResult;
         }
 
-        public NotificationResult NotificationsForAddress(UInt160 address, string event_type = null)
+        public NotificationResult NotificationsForAddress(UInt160 address, NotificationQuery query)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for contract", results = new List<JToken>() };
 
-            foreach (byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_ADDR).Add(address)))
+            foreach (IterResult res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_ADDR).Add(address)))
             {
-                JToken t = JToken.Parse(Encoding.Default.GetString(res));
-                if (filter_result(t, event_type))
+                if (filter_result(res.json, query))
                 {
-                    nResult.results.Add(t);
+                    nResult.results.Add(res.json);
                 }
             }
 
             return nResult;
         }
 
-        public NotificationResult GetTokens()
+        public NotificationResult GetTokens(NotificationQuery query)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for tokens", results = new List<JToken>() };
 
-            foreach (byte[] res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_TOKEN)))
+            foreach (IterResult res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_TOKEN)))
             {
-                nResult.results.Add(JToken.Parse(Encoding.Default.GetString(res)));
+                if( filter_result(res.json, query))
+                {
+                    nResult.results.Add(res.json);
+                }
             }
 
             return nResult;
@@ -123,26 +124,39 @@ namespace Neo.Notifications
             db.Dispose();
         }
 
-        private bool filter_result(JToken token, string event_type)
+        private bool filter_result(JToken token, NotificationQuery query)
         {
-            if (event_type == null)
+
+            if (query.EventType == null && query.AfterBlock == -1)
             {
                 return true;
             }
 
-            JToken notifyType = token.SelectToken("notify_type");
-            if (notifyType != null && notifyType.ToString() == event_type)
+            if( query.EventType != null)
             {
-                return true;
+                JToken notifyType = token.SelectToken("notify_type");
+                if (notifyType != null && notifyType.ToString() != query.EventType)
+                {
+                    return false;
+                }
             }
 
-            return false;
+            if( query.AfterBlock > -1)
+            {
+                int notifyBlock = token.SelectToken("block").ToObject<int>();
+                if(notifyBlock <= query.AfterBlock)
+                {
+                    return false;
+                }
+            }
+
+            return true;
 
         }
 
-        private List<byte[]> IterFind(Slice prefix)
+        private List<IterResult> IterFind(Slice prefix)
         {
-            List<byte[]> results = new List<byte[]>();
+            List<IterResult> results = new List<IterResult>();
             Iterator it = db.NewIterator(readOptions);
             for (it.Seek(prefix); it.Valid(); it.Next())
             {
@@ -151,7 +165,7 @@ namespace Neo.Notifications
                 byte[] y = prefix.ToArray();
                 if (x.Length < y.Length) break;
                 if (!x.Take(y.Length).SequenceEqual(y)) break;
-                results.Add(it.Value().ToArray());
+                results.Add( new IterResult { key = x, value= it.Value().ToArray() });
             }
             it.Dispose();
             return results;

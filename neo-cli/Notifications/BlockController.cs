@@ -20,7 +20,7 @@ namespace Neo.Notifications
         public IActionResult GetByHeight(int height, NotificationQuery pageQuery)
         {
             uint blockHeight = Convert.ToUInt32(height);
-            NotificationResult result = NotificationDB.Instance.NotificationsForBlock(blockHeight, pageQuery.EventType);
+            NotificationResult result = NotificationDB.Instance.NotificationsForBlock(blockHeight, pageQuery);
 
             result.Paginate(pageQuery);
 

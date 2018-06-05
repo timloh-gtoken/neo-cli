@@ -28,11 +28,11 @@ namespace Neo.Notifications
 
             if( addr.Length == 34)
             {
-                result = NotificationDB.Instance.NotificationsForAddress(Wallet.ToScriptHash(addr), pageQuery.EventType);
+                result = NotificationDB.Instance.NotificationsForAddress(Wallet.ToScriptHash(addr), pageQuery);
 
             } else if( UInt160.TryParse(addr, out UInt160 address))
             {
-                result = NotificationDB.Instance.NotificationsForAddress(address, pageQuery.EventType);
+                result = NotificationDB.Instance.NotificationsForAddress(address, pageQuery);
             }
 
             result.Paginate(pageQuery);

@@ -5,6 +5,26 @@ using Newtonsoft.Json.Linq;
 
 namespace Neo.Notifications
 {
+    public class IterResult
+    {
+        public byte[] value;
+        public byte[] key;
+
+        private JToken _json = null;
+
+        public JToken json
+        {
+            get
+            {
+                if (_json == null)
+                {
+                    _json = JToken.Parse(Encoding.Default.GetString(value));
+                    _json.Last.AddAfterSelf(new JProperty("key", "0x"+key.ToHexString()));
+                }
+                return _json;
+            }
+        }
+    }
 
     public class NotificationQuery
     {
@@ -13,6 +33,7 @@ namespace Neo.Notifications
         private int _pageSize = 500;
 
         public string EventType { get; set; } = null;
+        public int AfterBlock { get; set; } = -1;
 
         public int PageSize
         {
