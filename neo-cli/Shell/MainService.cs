@@ -1132,11 +1132,11 @@ namespace Neo.Shell
                     notification["state"] = p.State.ToParameter().ToJson();
                     return notification;
                 }).ToArray();
-                //            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
-                //            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
-                //            File.WriteAllText(path, json.ToString());
+            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
+            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
+            File.WriteAllText(path, json.ToString());
 
-                Console.WriteLine($"TX: {json.ToString()}");
+//                Console.WriteLine($"TX: {json.ToString()}");
 
             }
         }
