@@ -36,6 +36,7 @@ namespace Neo.Notifications
         private ReadOptions readOptions = new ReadOptions { FillCache = false };
         private WriteOptions writeOptions = WriteOptions.Default;
 
+        private int blockEventIndex = 0;
 
         private static NotificationDB _instance;
 
@@ -55,6 +56,7 @@ namespace Neo.Notifications
         private NotificationDB()
         {
             LevelDBBlockchain.ApplicationExecuted += LevelDBBlockchain_ApplicationExecuted;
+            LevelDBBlockchain.PersistCompleted += LevelDBBlockchain_BlockPersisted;
             String path = Settings.Default.Paths.Notifications;
             db = DB.Open(path, new Options { CreateIfMissing = true });
         }
@@ -113,7 +115,6 @@ namespace Neo.Notifications
                     nResult.results.Add(res.json);
                 }
             }
-
             return nResult;
         }
 
@@ -121,6 +122,7 @@ namespace Neo.Notifications
         public void Dispose()
         {
             LevelDBBlockchain.ApplicationExecuted -= LevelDBBlockchain_ApplicationExecuted;
+            LevelDBBlockchain.PersistCompleted -= LevelDBBlockchain_BlockPersisted;
             db.Dispose();
         }
 
@@ -171,7 +173,10 @@ namespace Neo.Notifications
             return results;
         }
 
-
+        private void LevelDBBlockchain_BlockPersisted(object sender, Block block)
+        {
+            blockEventIndex = 0;
+        }
 
         private void LevelDBBlockchain_ApplicationExecuted(object sender, ApplicationExecutedEventArgs e)
         {
@@ -234,6 +239,8 @@ namespace Neo.Notifications
                     {
                         Console.WriteLine($"Could not get notification state: {error.ToString()}");
                     }
+
+                    blockEventIndex++;
                 }
 
             }
@@ -245,6 +252,8 @@ namespace Neo.Notifications
             notification["contract"] = n.ScriptHash.ToString();
             notification["block"] = height;
             notification["tx"] = txid;
+            notification["index"] = blockEventIndex;
+
             return notification;
         }
 

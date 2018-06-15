@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Newtonsoft.Json.Linq;
 
@@ -82,11 +83,11 @@ namespace Neo.Notifications
                 return;
             }
 
-            if( total > query.PageSize)
+            if (total > query.PageSize)
             {
-                int offset = query.PageSize * (query.Page -1);
+                int offset = query.PageSize * (query.Page - 1);
                 int count = (offset + query.PageSize > total) ? total - offset : query.PageSize;
-                results = results.GetRange(offset, count);
+                results = results.OrderBy(r => r["block"]).ThenBy(r => r["index"]).ToList().GetRange(offset, count);
             }
         }
     }
