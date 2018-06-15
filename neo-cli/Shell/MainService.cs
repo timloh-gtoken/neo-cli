@@ -55,6 +55,7 @@ namespace Neo.Shell
                 for (uint height = start; height <= end; height++)
                 {
                     byte[] array = r.ReadBytes(r.ReadInt32());
+
                     if (height > blockchain.Height)
                     {
                         Block block = array.AsSerializable<Block>();
@@ -898,6 +899,16 @@ namespace Neo.Shell
             LocalNode = new LocalNode();
             if (useLog)
                 LevelDBBlockchain.ApplicationExecuted += LevelDBBlockchain_ApplicationExecuted;
+
+            if (processNotifications)
+            {
+                notificationDB = NotificationDB.Instance;
+            }
+            if (serveNotifications)
+            {
+                notificationApi = new NotificationApiApplication();
+            }
+
             Task.Run(() =>
             {
                 const string path_acc = "chain.acc";
@@ -964,15 +975,6 @@ namespace Neo.Shell
                 {
                     rpc = new RpcServerWithWallet(LocalNode);
                     rpc.Start(Settings.Default.RPC.Port, Settings.Default.RPC.SslCert, Settings.Default.RPC.SslCertPassword);
-                }
-
-                if( processNotifications)
-                {
-                    notificationDB = NotificationDB.Instance;
-                }
-                if( serveNotifications)
-                {
-                    notificationApi = new NotificationApiApplication();
                 }
             });
         }
@@ -1073,23 +1075,28 @@ namespace Neo.Shell
 
         private void LevelDBBlockchain_ApplicationExecuted(object sender, ApplicationExecutedEventArgs e)
         {
-            JObject json = new JObject();
-            json["txid"] = e.Transaction.Hash.ToString();
-            json["vmstate"] = e.VMState;
-            json["gas_consumed"] = e.GasConsumed.ToString();
-            json["stack"] = e.Stack.Select(p => p.ToParameter().ToJson()).ToArray();
-            json["notifications"] = e.Notifications.Select(p =>
+            foreach(ApplicationExecutionResult res in e.ExecutionResults)
             {
-                JObject notification = new JObject();
-                notification["contract"] = p.ScriptHash.ToString();
-                notification["state"] = p.State.ToParameter().ToJson();
-                return notification;
-            }).ToArray();
-            //            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
-            //            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
-            //            File.WriteAllText(path, json.ToString());
+                JObject json = new JObject();
+                json["txid"] = e.Transaction.Hash.ToString();
 
-            Console.WriteLine($"TX: {json.ToString()}");
+                json["vmstate"] = res.VMState;
+                json["gas_consumed"] = res.GasConsumed.ToString();
+                json["stack"] = res.Stack.Select(p => p.ToParameter().ToJson()).ToArray();
+                json["notifications"] = res.Notifications.Select(p =>
+                {
+                    JObject notification = new JObject();
+                    notification["contract"] = p.ScriptHash.ToString();
+                    notification["state"] = p.State.ToParameter().ToJson();
+                    return notification;
+                }).ToArray();
+                //            Directory.CreateDirectory(Settings.Default.Paths.ApplicationLogs);
+                //            string path = Path.Combine(Settings.Default.Paths.ApplicationLogs, $"{e.Transaction.Hash}.json");
+                //            File.WriteAllText(path, json.ToString());
+
+                Console.WriteLine($"TX: {json.ToString()}");
+
+            }
         }
     }
 }

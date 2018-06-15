@@ -179,63 +179,64 @@ namespace Neo.Notifications
             uint blockHeight = Blockchain.Default.Height+1;
             string txid = e.Transaction.Hash.ToString();
 
-            WriteBatch batch = new WriteBatch();
-
             bool checkedContract = false;
 
-            foreach ( var p in e.Notifications)
+            foreach(ApplicationExecutionResult res in e.ExecutionResults)
             {
 
-                if( !checkedContract)
+                foreach (var p in res.Notifications)
                 {
-                    checkedContract = true;
-                    bool contractIsSaved = checkContractExists(p.ScriptHash);
-                    if( !contractIsSaved)
+
+                    if (!checkedContract)
                     {
-                        checkIsNEP5(p.ScriptHash, txid);   
-                    }
-                }
-
-                try
-                {
-                    JObject notificationJson = NotificationToJson(p, blockHeight, txid);
-
-                    VMArray states = p.State as VMArray;
-                    if( states != null && states.Count > 0)
-                    {
-                        string notifType = states[0].GetString();
-
-                        switch(notifType) {
-                            case "transfer":
-                                persistTransfer(p, notificationJson, states, batch, blockHeight);
-                                break;
-
-                            case "refund":
-                                persistRefund(p, notificationJson, states, batch, blockHeight );
-                                break;
-
-                            case "mint":
-                                persistMintOrBurn("mint", p, notificationJson, states, batch, blockHeight);
-                                break;
-
-                            case "burn":
-                                persistMintOrBurn("burn", p, notificationJson, states, batch, blockHeight);
-                                break;
-
-                            default:
-                                persistNotification(notifType, p, notificationJson, batch, blockHeight);
-                                break;
+                        checkedContract = true;
+                        bool contractIsSaved = checkContractExists(p.ScriptHash);
+                        if (!contractIsSaved)
+                        {
+                            checkIsNEP5(p.ScriptHash, txid);
                         }
                     }
+
+                    try
+                    {
+                        JObject notificationJson = NotificationToJson(p, blockHeight, txid);
+
+                        VMArray states = p.State as VMArray;
+                        if (states != null && states.Count > 0)
+                        {
+                            string notifType = states[0].GetString();
+
+                            switch (notifType)
+                            {
+                                case "transfer":
+                                    persistTransfer(p, notificationJson, states, blockHeight);
+                                    break;
+
+                                case "refund":
+                                    persistRefund(p, notificationJson, states, blockHeight);
+                                    break;
+
+                                case "mint":
+                                    persistMintOrBurn("mint", p, notificationJson, states, blockHeight);
+                                    break;
+
+                                case "burn":
+                                    persistMintOrBurn("burn", p, notificationJson, states, blockHeight);
+                                    break;
+
+                                default:
+                                    persistNotification(notifType, p, notificationJson, blockHeight);
+                                    break;
+                            }
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        Console.WriteLine($"Could not get notification state: {error.ToString()}");
+                    }
                 }
-                catch (Exception error)
-                {
-                    Console.WriteLine($"Could not get notification state: {error.ToString()}");
-                }
+
             }
-
-            db.Write(writeOptions, batch);
-
         }
 
         private JObject NotificationToJson(NotifyEventArgs n, uint height, string txid)
@@ -253,7 +254,7 @@ namespace Neo.Notifications
         }
 
 
-        private uint incrementCount(Slice toIncrement, WriteBatch wb)
+        private uint incrementCount(Slice toIncrement)
         {
             uint currentCount = 0;
 
@@ -263,7 +264,7 @@ namespace Neo.Notifications
             }
             currentCount += 1;
 
-            wb.Put(toIncrement, currentCount);
+            db.Put(writeOptions, toIncrement, currentCount);
 
             return currentCount;
         }
@@ -304,41 +305,41 @@ namespace Neo.Notifications
         }
 
 
-        private void persistToAddr(byte[] addr, byte[] notification, WriteBatch wb)
+        private void persistToAddr(byte[] addr, byte[] notification)
         {
             Slice countKey = SliceBuilder.Begin(NotificationsPrefix.NP_COUNT).Add(addr);
 
-            uint currentCount = incrementCount(countKey, wb);
+            uint currentCount = incrementCount(countKey);
 
             Slice notifKey = SliceBuilder.Begin(NotificationsPrefix.NP_ADDR).Add(addr).Add(currentCount);
 
-            wb.Put(notifKey, notification);
+            db.Put(writeOptions, notifKey, notification);
         }
 
-        private void persistToBlock(uint blockHeight, byte[] notification, WriteBatch wb)
+        private void persistToBlock(uint blockHeight, byte[] notification)
         {
             Slice countKey = SliceBuilder.Begin(NotificationsPrefix.NP_COUNT).Add(blockHeight);
 
-            uint currentCount = incrementCount(countKey, wb);
+            uint currentCount = incrementCount(countKey);
 
             Slice notifKey = SliceBuilder.Begin(NotificationsPrefix.NP_BLOCK).Add(blockHeight).Add(currentCount);
 
-            wb.Put(notifKey, notification);
+            db.Put(writeOptions, notifKey, notification);
         }
 
-        private void persistToContract(byte[] contract, byte[] notification, WriteBatch wb)
+        private void persistToContract(byte[] contract, byte[] notification)
         {
             Slice countKey = SliceBuilder.Begin(NotificationsPrefix.NP_COUNT).Add(contract);
 
-            uint currentCount = incrementCount(countKey, wb);
+            uint currentCount = incrementCount(countKey);
 
             Slice notifKey = SliceBuilder.Begin(NotificationsPrefix.NP_CONTRACT).Add(contract).Add(currentCount);
 
-            wb.Put(notifKey, notification);
+            db.Put(writeOptions, notifKey, notification);
 
         }
 
-        private void persistTransfer(NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
+        private void persistTransfer(NotifyEventArgs n, JObject nJson, VMArray states, uint height)
         {
             nJson["notify_type"] = "transfer";
 
@@ -371,26 +372,26 @@ namespace Neo.Notifications
 
                     byte[] output = JObjectToBytes(nJson);
 
-                    persistToAddr(to_ba, output, wb);
+                    persistToAddr(to_ba, output);
 
                     if( hasFromAddress)
                     {
-                        persistToAddr(from_ba, output, wb);
+                        persistToAddr(from_ba, output);
                     }
 
-                    persistToBlock(height, output, wb);
-                    persistToContract(n.ScriptHash.ToArray(), output, wb);
+                    persistToBlock(height, output);
+                    persistToContract(n.ScriptHash.ToArray(), output);
 
                 }
                 catch (Exception error)
                 {
-                    Console.WriteLine($"Could not write transfer: {error.ToString()}");
+                    Console.WriteLine($"Could not write transfer: Hegiht: {height} States: {states}, {error.ToString()}");
                 }
 
             }
         }
 
-        private void persistRefund(NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
+        private void persistRefund(NotifyEventArgs n, JObject nJson, VMArray states, uint height)
         {
             nJson["notify_type"] = "refund";
 
@@ -413,9 +414,9 @@ namespace Neo.Notifications
 
                     byte[] output = JObjectToBytes(nJson);
 
-                    persistToAddr(to_ba, output, wb);
-                    persistToBlock(height, output, wb);
-                    persistToContract(n.ScriptHash.ToArray(), output, wb);
+                    persistToAddr(to_ba, output);
+                    persistToBlock(height, output);
+                    persistToContract(n.ScriptHash.ToArray(), output);
 
                 }
                 catch (Exception error)
@@ -426,7 +427,7 @@ namespace Neo.Notifications
             }
         }
 
-        private void persistMintOrBurn(string mintOrBurn, NotifyEventArgs n, JObject nJson, VMArray states, WriteBatch wb, uint height)
+        private void persistMintOrBurn(string mintOrBurn, NotifyEventArgs n, JObject nJson, VMArray states, uint height)
         {
             nJson["notify_type"] = mintOrBurn;
 
@@ -444,9 +445,9 @@ namespace Neo.Notifications
                     nJson["state"] = null;
                     byte[] output = JObjectToBytes(nJson);
 
-                    persistToAddr(to_ba, output, wb);
-                    persistToBlock(height, output, wb);
-                    persistToContract(n.ScriptHash.ToArray(), output, wb);
+                    persistToAddr(to_ba, output);
+                    persistToBlock(height, output);
+                    persistToContract(n.ScriptHash.ToArray(), output);
 
                 }
                 catch (Exception error)
@@ -457,15 +458,15 @@ namespace Neo.Notifications
             }
         }
 
-        private void persistNotification(string notifType, NotifyEventArgs n, JObject nJson, WriteBatch wb, uint height)
+        private void persistNotification(string notifType, NotifyEventArgs n, JObject nJson, uint height)
         {
             UInt160 contractHash = n.ScriptHash;
             nJson["notify_type"] = notifType;
             nJson["state"] = n.State.ToParameter().ToJson();
             byte[] output = JObjectToBytes(nJson);
 
-            persistToBlock(height, output, wb);
-            persistToContract(n.ScriptHash.ToArray(), output, wb);
+            persistToBlock(height, output);
+            persistToContract(n.ScriptHash.ToArray(), output);
         }
     }
 }
