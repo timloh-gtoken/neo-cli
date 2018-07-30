@@ -40,7 +40,7 @@ namespace Neo.Shell
 
         protected LocalNode LocalNode { get; private set; }
         protected override string Prompt => "neo";
-        public override string ServiceName => "NEO-CLI";
+        public override string ServiceName => "NEO-CLI [Notification Build]";
 
 		private void ImportBlocks(Stream stream, bool read_start = false)
         {
