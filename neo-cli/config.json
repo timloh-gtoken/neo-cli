@@ -1,9 +1,9 @@
 ﻿{
   "ApplicationConfiguration": {
     "Paths": {
-      "Chain": "Chain_{0}",
+      "Chain": "Chain",
       "ApplicationLogs": "ApplicationLogs_{0}",
-      "Notifications":  "Notifications_{0}"        
+      "Notifications":  "Notifications"        
     },
     "P2P": {
       "Port": 10333,

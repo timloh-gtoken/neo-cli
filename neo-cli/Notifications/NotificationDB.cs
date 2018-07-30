@@ -27,6 +27,8 @@ namespace Neo.Notifications
 
         public const byte NP_CONTRACT_LIST = 0x05;
         public const byte NP_TOKEN = 0x06;
+
+        public const byte NP_TX = 0x07;
     }
 
     public class NotificationDB
@@ -104,6 +106,22 @@ namespace Neo.Notifications
             return nResult;
         }
 
+        public NotificationResult NotificationsForTransaction(UInt256 tx, NotificationQuery query)
+        {
+            NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for TX", results = new List<JToken>() };
+
+            foreach (IterResult res in IterFind(SliceBuilder.Begin(NotificationsPrefix.NP_TX).Add(tx)))
+            {
+                if (filter_result(res.json, query))
+                {
+                    nResult.results.Add(res.json);
+                }
+            }
+
+            return nResult;
+        }
+
+
         public NotificationResult GetTokens(NotificationQuery query)
         {
             NotificationResult nResult = new NotificationResult { current_height = Blockchain.Default.Height, message = "Results for tokens", results = new List<JToken>() };
@@ -143,10 +161,19 @@ namespace Neo.Notifications
                 }
             }
 
-            if( query.AfterBlock > -1)
+            int notifyBlock = token.SelectToken("block").ToObject<int>();
+
+            if ( query.AfterBlock > -1)
             {
-                int notifyBlock = token.SelectToken("block").ToObject<int>();
                 if(notifyBlock <= query.AfterBlock)
+                {
+                    return false;
+                }
+            }
+
+            if(query.BeforeBlock > -1)
+            {
+                if(notifyBlock >= query.BeforeBlock)
                 {
                     return false;
                 }
@@ -183,11 +210,15 @@ namespace Neo.Notifications
             // blockchain height isn't updated until after this event is dispatched
             uint blockHeight = Blockchain.Default.Height+1;
             string txid = e.Transaction.Hash.ToString();
-
+            byte[] tx_hash = e.Transaction.Hash.ToArray();
             bool checkedContract = false;
 
             foreach(ApplicationExecutionResult res in e.ExecutionResults)
             {
+                if(res.VMState.HasFlag(VMState.FAULT))
+                {
+                    continue;
+                }
 
                 foreach (var p in res.Notifications)
                 {
@@ -214,23 +245,15 @@ namespace Neo.Notifications
                             switch (notifType)
                             {
                                 case "transfer":
-                                    persistTransfer(p, notificationJson, states, blockHeight);
+                                    persistTransfer(p, notificationJson, states, blockHeight, tx_hash);
                                     break;
 
                                 case "refund":
-                                    persistRefund(p, notificationJson, states, blockHeight);
-                                    break;
-
-                                case "mint":
-                                    persistMintOrBurn("mint", p, notificationJson, states, blockHeight);
-                                    break;
-
-                                case "burn":
-                                    persistMintOrBurn("burn", p, notificationJson, states, blockHeight);
+                                    persistRefund(p, notificationJson, states, blockHeight,tx_hash);
                                     break;
 
                                 default:
-                                    persistNotification(notifType, p, notificationJson, blockHeight);
+                                    persistNotification(notifType, p, notificationJson, blockHeight, tx_hash);
                                     break;
                             }
                         }
@@ -345,10 +368,21 @@ namespace Neo.Notifications
             Slice notifKey = SliceBuilder.Begin(NotificationsPrefix.NP_CONTRACT).Add(contract).Add(currentCount);
 
             db.Put(writeOptions, notifKey, notification);
-
         }
 
-        private void persistTransfer(NotifyEventArgs n, JObject nJson, VMArray states, uint height)
+        private void persistToTransaction(byte[] tx_hash, byte[] notification)
+        {
+            Slice countKey = SliceBuilder.Begin(NotificationsPrefix.NP_COUNT).Add(tx_hash);
+
+            uint currentCount = incrementCount(countKey);
+
+            Slice notifKey = SliceBuilder.Begin(NotificationsPrefix.NP_TX).Add(tx_hash).Add(currentCount);
+
+            db.Put(writeOptions, notifKey, notification);
+        }
+
+
+        private void persistTransfer(NotifyEventArgs n, JObject nJson, VMArray states, uint height, byte[] tx_hash)
         {
             nJson["notify_type"] = "transfer";
 
@@ -390,7 +424,7 @@ namespace Neo.Notifications
 
                     persistToBlock(height, output);
                     persistToContract(n.ScriptHash.ToArray(), output);
-
+                    persistToTransaction(tx_hash, output);
                 }
                 catch (Exception error)
                 {
@@ -400,7 +434,7 @@ namespace Neo.Notifications
             }
         }
 
-        private void persistRefund(NotifyEventArgs n, JObject nJson, VMArray states, uint height)
+        private void persistRefund(NotifyEventArgs n, JObject nJson, VMArray states, uint height, byte[] tx_hash)
         {
             nJson["notify_type"] = "refund";
 
@@ -426,6 +460,7 @@ namespace Neo.Notifications
                     persistToAddr(to_ba, output);
                     persistToBlock(height, output);
                     persistToContract(n.ScriptHash.ToArray(), output);
+                    persistToTransaction(tx_hash, output);
 
                 }
                 catch (Exception error)
@@ -436,38 +471,7 @@ namespace Neo.Notifications
             }
         }
 
-        private void persistMintOrBurn(string mintOrBurn, NotifyEventArgs n, JObject nJson, VMArray states, uint height)
-        {
-            nJson["notify_type"] = mintOrBurn;
-
-            if (states.Count >= 3)
-            {
-                try
-                {
-                    string to_addr = "";
-                    byte[] to_ba = states[1].GetByteArray();
-                    to_addr = Wallet.ToAddress(new UInt160(to_ba));
-                    BigInteger amt = states[2].GetBigInteger();
-
-                    nJson["addr_to"] = to_addr;
-                    nJson["amount"] = amt.ToString();
-                    nJson["state"] = null;
-                    byte[] output = JObjectToBytes(nJson);
-
-                    persistToAddr(to_ba, output);
-                    persistToBlock(height, output);
-                    persistToContract(n.ScriptHash.ToArray(), output);
-
-                }
-                catch (Exception error)
-                {
-                    Console.WriteLine($"Could not write transfer: {error.ToString()}");
-                }
-
-            }
-        }
-
-        private void persistNotification(string notifType, NotifyEventArgs n, JObject nJson, uint height)
+        private void persistNotification(string notifType, NotifyEventArgs n, JObject nJson, uint height, byte[] tx_hash)
         {
             UInt160 contractHash = n.ScriptHash;
             nJson["notify_type"] = notifType;
@@ -476,6 +480,7 @@ namespace Neo.Notifications
 
             persistToBlock(height, output);
             persistToContract(n.ScriptHash.ToArray(), output);
+            persistToTransaction(tx_hash, output);
         }
     }
 }
